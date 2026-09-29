@@ -1,0 +1,44 @@
+from pathlib import Path
+
+import httpx
+import pytest
+
+from py_decision.config import Settings
+from py_decision.main import create_app
+
+
+@pytest.mark.asyncio
+async def test_health_endpoint() -> None:
+    app = create_app(Settings(app_name="test-service", environment="test"))
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+    ) as client:
+        response = await client.get("/api/health")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ok",
+        "service": "test-service",
+        "environment": "test",
+    }
+
+
+@pytest.mark.asyncio
+async def test_static_bundle_is_served(tmp_path: Path) -> None:
+    bundle = tmp_path / "bundle"
+    bundle.mkdir()
+    (bundle / "index.html").write_text("<h1>hello</h1>", encoding="utf-8")
+    (bundle / "app.js").write_text("console.log('hello')", encoding="utf-8")
+
+    app = create_app(public_dir=tmp_path)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+    ) as client:
+        index = await client.get("/")
+        asset = await client.get("/bundle/app.js")
+
+    assert index.text == "<h1>hello</h1>"
+    assert asset.text == "console.log('hello')"
