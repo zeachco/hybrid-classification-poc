@@ -3,6 +3,10 @@ from pathlib import Path
 import httpx
 import pytest
 
+from py_decision.classification import (
+    ClassificationLabel,
+    ClassificationResponse,
+)
 from py_decision.config import Settings
 from py_decision.main import create_app
 
@@ -23,6 +27,71 @@ async def test_health_endpoint() -> None:
         "service": "test-service",
         "environment": "test",
     }
+
+
+@pytest.mark.asyncio
+async def test_classification_endpoint_uses_runtime(tmp_path: Path) -> None:
+    class FakeRuntime:
+        def evaluate(self, request):
+            assert request.question == "Which team?"
+            assert request.choices == ["Billing", "Support"]
+            return ClassificationResponse(
+                question_type="choice",
+                classification="Billing",
+                confidence=0.91,
+                labels=[
+                    ClassificationLabel(
+                        label="Billing", value="Billing", probability=0.91
+                    ),
+                    ClassificationLabel(
+                        label="Support", value="Support", probability=0.09
+                    ),
+                ],
+            )
+
+    app = create_app(
+        public_dir=tmp_path,
+        runtime_factory=lambda _settings: FakeRuntime(),
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+    ) as client:
+        response = await client.post(
+            "/api/classify",
+            json={
+                "question": "Which team?",
+                "question_type": "choice",
+                "choices": ["Billing", "Support"],
+                "prompt": "I need a refund.",
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json()["classification"] == "Billing"
+    assert response.json()["labels"][0]["probability"] == 0.91
+
+
+@pytest.mark.asyncio
+async def test_classification_requires_choices_for_choice_questions(
+    tmp_path: Path,
+) -> None:
+    app = create_app(public_dir=tmp_path, runtime_factory=lambda _settings: None)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+    ) as client:
+        response = await client.post(
+            "/api/classify",
+            json={
+                "question": "Which team?",
+                "question_type": "choice",
+                "choices": ["Billing"],
+                "prompt": "I need a refund.",
+            },
+        )
+
+    assert response.status_code == 422
 
 
 @pytest.mark.asyncio

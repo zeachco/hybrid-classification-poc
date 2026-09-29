@@ -12,6 +12,8 @@ class Settings(BaseSettings):
 
     app_name: str = "py-decision"
     environment: str = "development"
+    laya_model: str = "english"
+    laya_device: str | None = None
 
 
 settings = Settings()

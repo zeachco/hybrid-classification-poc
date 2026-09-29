@@ -10,6 +10,7 @@ dependencies = [
     "fastapi>=0.142.0",
     "pydantic-settings>=2.15.0",
     "uvicorn[standard]>=0.54.0",
+    "laya>=0.3.22",
 ]
 
 [project.scripts]

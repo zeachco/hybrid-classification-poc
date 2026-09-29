@@ -51,3 +51,21 @@ bun run --cwd client check
 The production client output is written to `public/bundle/`, which is served by
 the Python application and ignored by Git. Hand-authored files elsewhere under
 `public/` remain tracked.
+
+## Classification API
+
+The app exposes `POST /api/classify` with a question, question type (`choice`,
+`score`, or `noul`), optional choices, and a prompt:
+
+```json
+{
+  "question": "Which team should handle this?",
+  "question_type": "choice",
+  "choices": ["Billing", "Support", "Other"],
+  "prompt": "I was charged twice and need a refund."
+}
+```
+
+The response includes the selected `classification`, overall `confidence`, and
+sorted `labels` with their values and probabilities. Laya is imported lazily and
+the configured checkpoint is downloaded on the first classification request.
