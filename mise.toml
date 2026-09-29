@@ -2,3 +2,18 @@
 bun = "1.4.2"
 python = "3.14.7"
 uv = "0.12.19"
+
+[tasks.server]
+description = "Run the Python server with reload enabled"
+run = "uv run uvicorn py_decision.main:app --reload"
+
+[tasks.client]
+description = "Run the Vite client in development mode"
+dir = "client"
+run = "bun run dev"
+
+[tasks.dev]
+description = "Run the Python server and Vite client together"
+depends = ["server", "client"]
+alias = ["start"]
+run = "true"

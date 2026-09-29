@@ -26,15 +26,17 @@ bun install --cwd client
 bun run --cwd client build
 ```
 
-Run the Python server:
+Run both the Python server and Vite client in watch mode with the mise task:
 
 ```sh
-uv run uvicorn py_decision.main:app --reload
+mise run dev
+# alias:
+mise run start
 ```
 
-The application is available at <http://127.0.0.1:8000/>. During client-only
-work, `bun run --cwd client dev` starts Vite on port 5173 and proxies `/api`
-to the Python server.
+The Vite client is available at <http://127.0.0.1:5173/> and proxies `/api` to
+the Python server on port 8000. To run them separately, use `mise run server`
+and `mise run client`.
 
 ## Checks
 
