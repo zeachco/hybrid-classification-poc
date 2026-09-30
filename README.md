@@ -38,6 +38,32 @@ The Vite client is available at <http://127.0.0.1:5173/> and proxies `/api` to
 the Python server on port 8000. To run them separately, use `mise run server`
 and `mise run client`.
 
+## Railway deployment
+
+Railway uses the checked-in [`Dockerfile`](./Dockerfile) instead of Railpack. The
+multi-stage image builds the Bun/Vite client and runs the Python API with
+Railway's `$PORT`.
+
+Set these Railway variables:
+
+```text
+PY_DECISION_ENVIRONMENT=production
+PY_DECISION_LAYA_MODEL=english
+PY_DECISION_LAYA_DEVICE=cpu
+HF_HOME=/data/huggingface
+HF_HUB_CACHE=/data/huggingface/hub
+LAYA_REVISION=reviewed
+```
+
+Attach a Railway volume mounted at `/data`. Laya downloads the public
+`convaiinnovations/laya` checkpoint from Hugging Face on the first classification
+request and keeps it in that volume across restarts. No `HF_TOKEN` is needed for
+the public checkpoint. Give the service at least 4 GB RAM initially; PyTorch
+runtime memory is larger than the checkpoint file.
+
+The health check is `/api/health`. The first `/api/classify` request after a
+fresh volume may take time while the checkpoint is downloaded and initialized.
+
 ## Checks
 
 ```sh

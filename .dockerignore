@@ -1,0 +1,20 @@
+# Local environments and caches
+.venv
+__pycache__
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.git
+.gitignore
+
+# Dependencies are installed in the client build stage
+client/node_modules
+
+# The client bundle is rebuilt inside Docker
+public/bundle
+
+# Local logs and editor files
+*.log
+.idea
+.vscode
+.DS_Store
