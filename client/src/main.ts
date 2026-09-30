@@ -368,6 +368,11 @@ async function classify(): Promise<void> {
   submitLabel.textContent = "Evaluating…";
   setStatus(clientMode ? "Evaluating in the browser…" : "Sending prompt to the server model…", "loading");
 
+  // Let the browser paint the loading state before client-side inference can block the tab.
+  if (clientMode) {
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+  }
+
   try {
     let body: ClassificationResponse;
     if (clientMode) {
