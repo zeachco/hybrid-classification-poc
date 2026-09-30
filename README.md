@@ -52,6 +52,14 @@ The production client output is written to `public/bundle/`, which is served by
 the Python application and ignored by Git. Hand-authored files elsewhere under
 `public/` remain tracked.
 
+The client defaults to the server model. The **Client model** toggle is opt-in:
+it loads Laya's WASM engine in the browser, and subsequent evaluations stay in the
+browser instead of calling `/api/classify`. The normal client build bundles
+Laya's model, tokenizer, config, WASM glue, and binary automatically. To serve a
+model from another location, set `VITE_LAYA_MODEL_DIR` (see
+[`client/.env.example`](./client/.env.example)). Client inference needs about 1
+GB of RAM and may crash the browser.
+
 ## Classification API
 
 The app exposes `POST /api/classify` with a question, question type (`choice`,

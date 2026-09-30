@@ -11,5 +11,8 @@
   "devDependencies": {
     "typescript": "latest",
     "vite": "latest"
+  },
+  "dependencies": {
+    "laya-system-one": "1.3.3"
   }
 }
