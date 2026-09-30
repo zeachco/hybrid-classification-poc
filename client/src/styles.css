@@ -366,6 +366,16 @@ button:disabled {
   opacity: 0.6;
 }
 
+.button-spinner {
+  flex: 0 0 0.8rem;
+  border-color: #8e9d43;
+  border-top-color: #15170d;
+}
+
+button[data-state="loading"] .button-arrow {
+  opacity: 0.45;
+}
+
 .button-arrow {
   font-size: 1.3rem;
   line-height: 0.7;

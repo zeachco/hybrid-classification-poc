@@ -128,7 +128,8 @@ Other</textarea>
 
       <div class="form-actions">
         <p class="form-note" data-form-note>Requests use the server model by default.</p>
-        <button type="submit" data-submit>
+        <button type="submit" data-submit aria-busy="false">
+          <span class="spinner button-spinner" data-submit-spinner aria-hidden="true" hidden></span>
           <span data-submit-label>Evaluate prompt</span>
           <span class="button-arrow">→</span>
         </button>
@@ -159,6 +160,7 @@ const typeSelect = app.querySelector<HTMLSelectElement>("[data-question-type]");
 const choicesField = app.querySelector<HTMLElement>("[data-choices-field]");
 const choicesInput = app.querySelector<HTMLTextAreaElement>("[data-choices]");
 const submit = app.querySelector<HTMLButtonElement>("[data-submit]");
+const submitSpinner = app.querySelector<HTMLElement>("[data-submit-spinner]");
 const submitLabel = app.querySelector<HTMLElement>("[data-submit-label]");
 const status = app.querySelector<HTMLElement>("[data-status]");
 const clientModelToggle = app.querySelector<HTMLInputElement>("[data-client-model]");
@@ -307,6 +309,14 @@ function clientResponse(
   };
 }
 
+function clearResults(): void {
+  if (!results || !classification || !confidence || !probabilities) return;
+  results.hidden = true;
+  classification.textContent = "—";
+  confidence.textContent = "";
+  probabilities.replaceChildren();
+}
+
 function showResults(response: ClassificationResponse): void {
   if (!results || !classification || !confidence || !probabilities) return;
   results.hidden = false;
@@ -350,7 +360,11 @@ async function classify(): Promise<void> {
     .map((choice) => choice.trim())
     .filter(Boolean);
 
+  clearResults();
   submit.disabled = true;
+  submit.dataset.state = "loading";
+  submit.setAttribute("aria-busy", "true");
+  submitSpinner?.removeAttribute("hidden");
   submitLabel.textContent = "Evaluating…";
   setStatus(clientMode ? "Evaluating in the browser…" : "Sending prompt to the server model…", "loading");
 
@@ -388,11 +402,15 @@ async function classify(): Promise<void> {
     setStatus(`Evaluation failed: ${error instanceof Error ? error.message : String(error)}`, "error");
   } finally {
     submit.disabled = false;
+    delete submit.dataset.state;
+    submit.setAttribute("aria-busy", "false");
+    submitSpinner?.setAttribute("hidden", "");
     submitLabel.textContent = "Evaluate prompt";
   }
 }
 
 clientModelToggle?.addEventListener("change", () => {
+  clearResults();
   const enabled = clientModelToggle.checked;
   if (!enabled) {
     clientMode = false;
