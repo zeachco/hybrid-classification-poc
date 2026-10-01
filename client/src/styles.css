@@ -37,12 +37,12 @@ select {
 
 .shell {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(18rem, 0.65fr);
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   align-items: start;
   gap: 1rem;
-  width: min(100% - 2rem, 68rem);
-  margin: 0 auto;
-  padding: 3rem 0 5rem;
+  width: 100%;
+  margin: 0;
+  padding: 3rem clamp(1rem, 4vw, 4rem) 5rem;
 }
 
 .hero {
@@ -477,12 +477,18 @@ button[data-state="loading"] .button-arrow {
 
 @media (max-width: 900px) {
   .shell {
-    display: block;
+    grid-template-columns: 1fr;
     padding-top: 2.5rem;
   }
 
+  .classifier,
+  .results,
+  .status {
+    grid-column: 1;
+  }
+
   .results {
-    margin-top: 1rem;
+    margin-top: 0;
   }
 }
 
