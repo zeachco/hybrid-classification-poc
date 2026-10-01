@@ -53,19 +53,14 @@ Set these Railway variables:
 PY_DECISION_ENVIRONMENT=production
 PY_DECISION_LAYA_MODEL=english
 PY_DECISION_LAYA_DEVICE=cpu
-HF_HOME=/data/huggingface
-HF_HUB_CACHE=/data/huggingface/hub
-LAYA_REVISION=reviewed
 ```
 
-Attach a Railway volume mounted at `/data`. Laya downloads the public
-`convaiinnovations/laya` checkpoint from Hugging Face on the first classification
-request and keeps it in that volume across restarts. No `HF_TOKEN` is needed for
-the public checkpoint. Give the service at least 4 GB RAM initially; PyTorch
-runtime memory is larger than the checkpoint file.
-
-The health check is `/api/health`. The first `/api/classify` request after a
-fresh volume may take time while the checkpoint is downloaded and initialized.
+No additional volumes or storage are required. The public English checkpoint
+requires no `HF_TOKEN`; it is downloaded during the Docker image build and served
+from `/app/models/laya` at runtime. To use a different checkpoint, update the
+`LAYA_MODEL_REVISION` build ARG in the Dockerfile and rebuild the image. Give the
+service at least 4 GB of RAM because PyTorch runtime memory is larger than the
+checkpoint file.
 
 ## Checks
 
@@ -105,4 +100,4 @@ The app exposes `POST /api/classify` with a question, question type (`choice`,
 
 The response includes the selected `classification`, overall `confidence`, and
 sorted `labels` with their values and probabilities. Laya is imported lazily and
-the configured checkpoint is downloaded on the first classification request.
+the configured checkpoint is loaded on the first classification request.

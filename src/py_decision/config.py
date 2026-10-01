@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     environment: str = "development"
     laya_model: str = "english"
     laya_device: str | None = None
+    laya_model_dir: str | None = None
 
 
 settings = Settings()

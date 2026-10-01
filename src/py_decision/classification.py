@@ -57,7 +57,7 @@ class LayaRuntime:
     """Small adapter around Laya's typed decision runtime.
 
     The import and checkpoint load are intentionally lazy: the web server can expose
-    health and the UI without downloading a model, while the first classification pays
+    health and the UI without loading a model, while the first classification pays
     the one-time load cost.
     """
 
@@ -73,10 +73,17 @@ class LayaRuntime:
                 if self._router is None:
                     import laya  # type: ignore[import-untyped]
 
-                    self._router = laya.Router(
-                        device=self._settings.laya_device,
-                        default=self._settings.laya_model,
-                    )
+                    if self._settings.laya_model_dir:
+                        self._router = laya.Router(
+                            models={"english": self._settings.laya_model_dir},
+                            device=self._settings.laya_device,
+                            default=self._settings.laya_model,
+                        )
+                    else:
+                        self._router = laya.Router(
+                            device=self._settings.laya_device,
+                            default=self._settings.laya_model,
+                        )
         return self._router
 
     @staticmethod
