@@ -127,7 +127,7 @@ Other</textarea>
       </div>
     </form>
 
-    <section class="results" data-results hidden>
+    <section class="results" data-results>
       <div class="results-heading">
         <div>
           <p class="section-kicker">02 / Classification</p>
@@ -302,7 +302,6 @@ function clientResponse(
 
 function clearResults(): void {
   if (!results || !classification || !confidence || !probabilities) return;
-  results.hidden = true;
   classification.textContent = "—";
   confidence.textContent = "";
   probabilities.replaceChildren();
