@@ -3,6 +3,8 @@ import { fileURLToPath, URL } from "node:url";
 
 import { defineConfig, type Plugin } from "vite";
 
+const apiPort = Number(process.env.PY_DECISION_PORT ?? "8000");
+
 function layaWasmAssets(): Plugin {
   const packageRoot = fileURLToPath(
     new URL("./node_modules/laya-system-one/", import.meta.url),
@@ -85,7 +87,7 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      "/api": "http://127.0.0.1:8000",
+      "/api": `http://127.0.0.1:${apiPort}`,
     },
   },
 });

@@ -35,8 +35,11 @@ mise run start
 ```
 
 The Vite client is available at <http://127.0.0.1:5173/> and proxies `/api` to
-the Python server on port 8000. To run them separately, use `mise run server`
-and `mise run client`.
+the Python server. Both development servers automatically choose the next
+available port when their default port is already in use. To run them together,
+use `mise run dev` (or `mise run start`). To run them separately, use
+`mise run server`, then start the client with
+`PY_DECISION_PORT=<server-port> mise run client`.
 
 ## Railway deployment
 
