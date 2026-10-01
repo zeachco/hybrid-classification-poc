@@ -60,15 +60,6 @@ if (!app) {
 
 app.innerHTML = `
   <main class="shell">
-    <header class="hero">
-      <p class="eyebrow">Laya / System 1</p>
-      <h1>Classify anything.</h1>
-      <p class="lede">
-        Describe a decision, give Laya the possible outcomes, and see the model's calibrated
-        probabilities in one pass.
-      </p>
-    </header>
-
     <form class="classifier" data-form>
       <div class="form-heading">
         <div>

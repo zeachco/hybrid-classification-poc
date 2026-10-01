@@ -36,9 +36,13 @@ select {
 }
 
 .shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(18rem, 0.65fr);
+  align-items: start;
+  gap: 1rem;
   width: min(100% - 2rem, 68rem);
   margin: 0 auto;
-  padding: 4rem 0 5rem;
+  padding: 3rem 0 5rem;
 }
 
 .hero {
@@ -92,8 +96,13 @@ h2 {
   padding: clamp(1.25rem, 4vw, 2.5rem);
 }
 
+.classifier {
+  grid-column: 1;
+}
+
 .results {
-  margin-top: 1rem;
+  grid-column: 2;
+  margin-top: 0;
 }
 
 .form-heading,
@@ -447,8 +456,9 @@ button[data-state="loading"] .button-arrow {
 }
 
 .status {
+  grid-column: 1 / -1;
   min-height: 1.2rem;
-  margin: 1rem 0 0;
+  margin: 0;
   color: var(--ink-soft);
   font-size: 0.82rem;
 }
@@ -463,6 +473,17 @@ button[data-state="loading"] .button-arrow {
 
 .status[data-state="loading"] {
   color: #d9d2c3;
+}
+
+@media (max-width: 900px) {
+  .shell {
+    display: block;
+    padding-top: 2.5rem;
+  }
+
+  .results {
+    margin-top: 1rem;
+  }
 }
 
 @media (max-width: 620px) {
