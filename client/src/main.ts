@@ -33,6 +33,10 @@ type ClientPrediction = {
   answers: Record<string, ClientAnswer>;
 };
 
+type ClientPredictOptions = {
+  maxLen?: number;
+};
+
 type ClientRuntime = {
   predict(
     state: string,
@@ -42,8 +46,14 @@ type ClientRuntime = {
       criteria?: Record<string, string | null> | string[];
       threshold?: number;
     }>,
+    options?: ClientPredictOptions,
   ): Promise<ClientPrediction>;
 };
+
+// Keep the browser demo predictable on mid-range machines. Laya still uses
+// shorter internal buckets for short prompts, but never builds a plan beyond
+// this token budget for an interactive showcase request.
+const CLIENT_MAX_TOKENS = 1024;
 
 const CLIENT_MODEL_DIR = new URL(
   import.meta.env.VITE_LAYA_MODEL_DIR ?? `${import.meta.env.BASE_URL}models/laya/`,
@@ -99,12 +109,12 @@ app.innerHTML = `
 Technical support
 Sales
 Other</textarea>
-        <small data-choices-help>One possible answer per line.</small>
+        <small data-choices-help>One possible answer per line. Keep the list short for faster local inference.</small>
       </label>
 
       <label class="field field-wide prompt-field">
         <span>Prompt to evaluate</span>
-        <textarea name="prompt" rows="6" required maxlength="8000" placeholder="Paste the text Laya should classify…">I was charged twice for my subscription and need a refund.</textarea>
+        <textarea name="prompt" rows="6" required maxlength="6000" placeholder="Paste the text Laya should classify…">I was charged twice for my subscription and need a refund.</textarea>
       </label>
 
       <div class="client-loading" data-client-loading hidden aria-live="polite">
@@ -117,7 +127,7 @@ Other</textarea>
       </div>
 
       <div class="form-actions">
-        <p class="form-note" data-form-note>Requests use the server model by default.</p>
+        <p class="form-note" data-form-note>One shared WASM runtime stays in this browser.</p>
         <button type="submit" data-submit aria-busy="false">
           <span class="spinner button-spinner" data-submit-spinner aria-hidden="true" hidden></span>
           <span data-submit-label>Evaluate prompt</span>
@@ -193,6 +203,7 @@ type SharedWorkerRequest = {
   requestId: number;
   state: string;
   questions: Parameters<ClientRuntime["predict"]>[1];
+  options?: ClientPredictOptions;
 };
 
 type SharedWorkerResponse =
@@ -209,9 +220,24 @@ function setClientLoading(loading: boolean, label = "Loading the client model…
     formNote.textContent = loading
       ? "The client model must finish loading before it can evaluate prompts."
       : clientMode
-        ? "Requests run in this browser through Laya WASM."
+        ? "One shared WASM runtime stays in this browser."
         : "Requests use the server model by default.";
   }
+}
+
+async function warmClientRuntime(runtime: ClientRuntime): Promise<void> {
+  setClientLoading(true, "Warming up the client model…", "Running one small local inference so the first example is faster.");
+  await runtime.predict(
+    "A short local warm-up example.",
+    {
+      classification: {
+        type: "choice",
+        instructions: "Which category best fits this text?",
+        criteria: { Example: null, Other: null },
+      },
+    },
+    { maxLen: CLIENT_MAX_TOKENS },
+  );
 }
 
 async function loadClientRuntime(): Promise<ClientRuntime> {
@@ -223,16 +249,22 @@ async function loadClientRuntime(): Promise<ClientRuntime> {
       if (typeof SharedWorker === "undefined") {
         const { Laya } = await import("laya-system-one");
         setClientLoading(true, "Loading the client model…", "Fetching the tokenizer, model, and WASM engine.");
-        const runtime = await Laya.load({
+        const loadedRuntime = await Laya.load({
           backend: "wasm",
           modelDir: CLIENT_MODEL_DIR,
           ...(CLIENT_WASM_BASE ? { wasmBase: CLIENT_WASM_BASE } : {}),
         });
+        const runtime: ClientRuntime = {
+          predict(state, questions, options) {
+            return loadedRuntime.predict(state, questions, null, options);
+          },
+        };
+        await warmClientRuntime(runtime);
         clientRuntime = runtime;
         return runtime;
       }
 
-      return new Promise<ClientRuntime>((resolve, reject) => {
+      const runtime = await new Promise<ClientRuntime>((resolve, reject) => {
         const worker = new SharedWorker(
           new URL("./laya-shared-worker.ts", import.meta.url),
           { type: "module", name: "py-decision-laya" },
@@ -258,11 +290,11 @@ async function loadClientRuntime(): Promise<ClientRuntime> {
         };
 
         const runtime: ClientRuntime = {
-          predict(state, questions) {
+          predict(state, questions, options) {
             const requestId = ++nextRequestId;
             return new Promise<ClientPrediction>((resolvePrediction, rejectPrediction) => {
               pending.set(requestId, { resolve: resolvePrediction, reject: rejectPrediction });
-              const message: SharedWorkerRequest = { type: "predict", requestId, state, questions };
+              const message: SharedWorkerRequest = { type: "predict", requestId, state, questions, options };
               try {
                 port.postMessage(message);
               } catch (error: unknown) {
@@ -307,6 +339,9 @@ async function loadClientRuntime(): Promise<ClientRuntime> {
           wasmBase: CLIENT_WASM_BASE,
         });
       });
+      await warmClientRuntime(runtime);
+      clientRuntime = runtime;
+      return runtime;
     })().catch((error: unknown) => {
       clientRuntimePromise = null;
       clientRuntime = null;
@@ -454,12 +489,16 @@ async function classify(): Promise<void> {
 
   try {
     let body: ClassificationResponse;
+    let elapsedMs: number | null = null;
     if (clientMode) {
       const runtime = await loadClientRuntime();
+      const startedAt = performance.now();
       const prediction = await runtime.predict(
         String(data.get("prompt") ?? ""),
         makeClientQuestions(questionType, String(data.get("question") ?? ""), choices),
+        { maxLen: CLIENT_MAX_TOKENS },
       );
+      elapsedMs = Math.round(performance.now() - startedAt);
       const answer = prediction.answers.classification;
       if (!answer) throw new Error("The client model returned no classification.");
       body = clientResponse(questionType, choices, answer);
@@ -481,7 +520,12 @@ async function classify(): Promise<void> {
       body = responseBody as ClassificationResponse;
     }
     showResults(body);
-    setStatus(clientMode ? "Evaluation complete in the browser." : "Evaluation complete.", "ready");
+    setStatus(
+      clientMode && elapsedMs !== null
+        ? `Evaluation complete in the browser (${elapsedMs} ms warm inference).`
+        : "Evaluation complete.",
+      "ready",
+    );
   } catch (error) {
     setStatus(`Evaluation failed: ${error instanceof Error ? error.message : String(error)}`, "error");
   } finally {

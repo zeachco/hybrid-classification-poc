@@ -19,6 +19,11 @@ type ClientPrediction = {
   }>;
 };
 
+type PredictOptions = {
+  maxLen?: number;
+  headMaxLen?: number;
+};
+
 type WorkerRequest =
   | {
       type: "load";
@@ -30,6 +35,7 @@ type WorkerRequest =
       requestId: number;
       state: string;
       questions: Record<string, ClientQuestion>;
+      options?: PredictOptions;
     };
 
 type WorkerResponse =
@@ -41,6 +47,7 @@ type ClientRuntime = {
   predict(
     state: string,
     questions: Record<string, ClientQuestion>,
+    options?: PredictOptions,
   ): Promise<ClientPrediction>;
 };
 
@@ -77,17 +84,22 @@ function loadRuntime(modelDir: string, wasmBase: string): Promise<ClientRuntime>
   if (!runtimePromise) {
     runtimePromise = (async () => {
       const { Laya }: LayaModule = await import("laya-system-one");
-      return Laya.load({
+      const loadedRuntime = await Laya.load({
         backend: "wasm",
         modelDir,
         wasmBase,
       });
+      return {
+        predict(state: string, questions: Record<string, ClientQuestion>, options?: PredictOptions) {
+          return loadedRuntime.predict(state, questions, null, options);
+        },
+      };
     })().catch((error: unknown) => {
       runtimePromise = null;
       throw error;
     });
   }
-  return runtimePromise;
+  return runtimePromise!;
 }
 
 function send(port: MessagePort, message: WorkerResponse): void {
@@ -118,7 +130,7 @@ scope.onconnect = (event) => {
       return;
     }
     void currentRuntime
-      .then((runtime) => runtime.predict(message.state, message.questions))
+      .then((runtime) => runtime.predict(message.state, message.questions, message.options))
       .then((prediction) => send(port, {
         type: "prediction",
         requestId: message.requestId,

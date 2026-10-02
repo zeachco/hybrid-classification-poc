@@ -24,6 +24,8 @@ declare module "laya-system-one" {
     predict(
       state: string,
       questions: Record<string, LayaQuestion>,
+      requestedModel?: string | null,
+      options?: { maxLen?: number; headMaxLen?: number },
     ): Promise<LayaPrediction>;
   };
 
