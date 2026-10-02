@@ -68,13 +68,12 @@ app.innerHTML = `
         </div>
         <div class="runtime-controls">
           <label class="runtime-switch" data-runtime-switch title="Client inference needs about 1 GB of RAM and may crash your browser.">
-            <span>Server model</span>
-            <input type="checkbox" data-client-model aria-describedby="client-model-warning" />
+            <span>Client model only</span>
+            <input type="checkbox" data-client-model checked disabled aria-describedby="client-model-warning" />
             <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
-            <span>Client model</span>
           </label>
           <p class="runtime-warning" id="client-model-warning" data-client-model-warning role="note">
-            Client inference loads the WASM model into your browser. Your browser will need about 1 GB of RAM and might crash.
+            The server model is disabled for now — I won't pay for this publicly. Client inference loads the WASM model into your browser, which needs about 1 GB of RAM and might crash.
           </p>
         </div>
       </div>
@@ -154,7 +153,6 @@ const submit = app.querySelector<HTMLButtonElement>("[data-submit]");
 const submitSpinner = app.querySelector<HTMLElement>("[data-submit-spinner]");
 const submitLabel = app.querySelector<HTMLElement>("[data-submit-label]");
 const status = app.querySelector<HTMLElement>("[data-status]");
-const clientModelToggle = app.querySelector<HTMLInputElement>("[data-client-model]");
 const runtimeSwitch = app.querySelector<HTMLElement>("[data-runtime-switch]");
 const clientLoading = app.querySelector<HTMLElement>("[data-client-loading]");
 const clientLoadingLabel = app.querySelector<HTMLElement>("[data-client-loading-label]");
@@ -188,7 +186,7 @@ function formatValue(value: string | boolean | number): string {
 
 let clientRuntime: ClientRuntime | null = null;
 let clientRuntimePromise: Promise<ClientRuntime> | null = null;
-let clientMode = false;
+let clientMode = true;
 
 type SharedWorkerRequest = {
   type: "predict";
@@ -495,34 +493,16 @@ async function classify(): Promise<void> {
   }
 }
 
-clientModelToggle?.addEventListener("change", () => {
-  clearResults();
-  const enabled = clientModelToggle.checked;
-  if (!enabled) {
-    clientMode = false;
+setStatus("Loading the client model…", "loading");
+void loadClientRuntime()
+  .then(() => {
     setClientLoading(false);
-    setStatus("Using the server model.", "ready");
-    return;
-  }
-
-  clientMode = true;
-  clientModelToggle.disabled = true;
-  setStatus("Loading the client model…", "loading");
-  void loadClientRuntime()
-    .then(() => {
-      setClientLoading(false);
-      setStatus("Client model ready. Requests stay in this browser.", "ready");
-    })
-    .catch((error: unknown) => {
-      clientMode = false;
-      clientModelToggle.checked = false;
-      setClientLoading(false);
-      setStatus(`Client model failed to load: ${error instanceof Error ? error.message : String(error)}`, "error");
-    })
-    .finally(() => {
-      clientModelToggle.disabled = false;
-    });
-});
+    setStatus("Client model ready. Requests stay in this browser.", "ready");
+  })
+  .catch((error: unknown) => {
+    setClientLoading(false);
+    setStatus(`Client model failed to load: ${error instanceof Error ? error.message : String(error)}. The server model is disabled.`, "error");
+  });
 
 form?.addEventListener("submit", (event) => {
   event.preventDefault();

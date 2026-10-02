@@ -51,10 +51,21 @@ type LayaModule = typeof import("laya-system-one");
 // APIs that the browser backend needs.
 const browserGlobals = globalThis as unknown as {
   window?: typeof globalThis;
-  document?: Record<string, never>;
+  document?: {
+    querySelector: () => null;
+    querySelectorAll: () => never[];
+    getElementsByTagName: () => never[];
+  };
 };
 browserGlobals.window ??= globalThis;
-browserGlobals.document ??= {};
+browserGlobals.document ??= {
+  // Some browser module runtimes use these DOM probes even when running in a
+  // worker. Laya only needs browser detection and fetch, so keep the probes
+  // harmless instead of letting them abort model inference.
+  querySelector: () => null,
+  querySelectorAll: () => [],
+  getElementsByTagName: () => [],
+};
 
 const scope = globalThis as typeof globalThis & {
   onconnect?: (event: { ports: MessagePort[] }) => void;

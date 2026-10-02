@@ -76,9 +76,10 @@ The production client output is written to `public/bundle/`, which is served by
 the Python application and ignored by Git. Hand-authored files elsewhere under
 `public/` remain tracked.
 
-The client defaults to the server model. The **Client model** toggle is opt-in:
-it loads Laya's WASM engine in a shared browser worker, and subsequent evaluations
-stay in the browser instead of calling `/api/classify`. The shared worker keeps
+The client currently runs in **Client model only** mode. The server model option is
+disabled for now — I won't pay for this publicly. Laya's WASM engine runs in a
+shared browser worker, and evaluations stay in the browser instead of calling
+`/api/classify`. The shared worker keeps
 the loaded model outside the page, so reloads and additional tabs reuse the same
 runtime while it remains alive; the browser's HTTP cache avoids downloading the
 model again if the worker is evicted. The normal client build bundles Laya's
