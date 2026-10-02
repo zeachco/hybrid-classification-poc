@@ -77,10 +77,13 @@ the Python application and ignored by Git. Hand-authored files elsewhere under
 `public/` remain tracked.
 
 The client defaults to the server model. The **Client model** toggle is opt-in:
-it loads Laya's WASM engine in the browser, and subsequent evaluations stay in the
-browser instead of calling `/api/classify`. The normal client build bundles
-Laya's model, tokenizer, config, WASM glue, and binary automatically. To serve a
-model from another location, set `VITE_LAYA_MODEL_DIR` (see
+it loads Laya's WASM engine in a shared browser worker, and subsequent evaluations
+stay in the browser instead of calling `/api/classify`. The shared worker keeps
+the loaded model outside the page, so reloads and additional tabs reuse the same
+runtime while it remains alive; the browser's HTTP cache avoids downloading the
+model again if the worker is evicted. The normal client build bundles Laya's
+model, tokenizer, config, WASM glue, and binary automatically. To serve a model
+from another location, set `VITE_LAYA_MODEL_DIR` (see
 [`client/.env.example`](./client/.env.example)). Client inference needs about 1
 GB of RAM and may crash the browser.
 

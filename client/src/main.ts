@@ -190,7 +190,19 @@ let clientRuntime: ClientRuntime | null = null;
 let clientRuntimePromise: Promise<ClientRuntime> | null = null;
 let clientMode = false;
 
-function setClientLoading(loading: boolean, label = "Loading the client model…", detail = "Downloading the WASM engine and model into this browser."): void {
+type SharedWorkerRequest = {
+  type: "predict";
+  requestId: number;
+  state: string;
+  questions: Parameters<ClientRuntime["predict"]>[1];
+};
+
+type SharedWorkerResponse =
+  | { type: "loaded" }
+  | { type: "prediction"; requestId: number; prediction: ClientPrediction }
+  | { type: "error"; requestId?: number; message: string };
+
+function setClientLoading(loading: boolean, label = "Loading the client model…", detail = "Starting the shared WASM worker."): void {
   clientLoading?.toggleAttribute("hidden", !loading);
   if (clientLoadingLabel) clientLoadingLabel.textContent = label;
   if (clientLoadingDetail) clientLoadingDetail.textContent = detail;
@@ -208,16 +220,95 @@ async function loadClientRuntime(): Promise<ClientRuntime> {
   if (clientRuntime) return clientRuntime;
   if (!clientRuntimePromise) {
     clientRuntimePromise = (async () => {
-      setClientLoading(true, "Loading the client model…", "Starting the Laya WASM runtime.");
-      const { Laya } = await import("laya-system-one");
-      setClientLoading(true, "Loading the client model…", "Fetching the tokenizer, model, and WASM engine.");
-      const runtime = await Laya.load({
-        backend: "wasm",
-        modelDir: CLIENT_MODEL_DIR,
-        ...(CLIENT_WASM_BASE ? { wasmBase: CLIENT_WASM_BASE } : {}),
+      setClientLoading(true, "Loading the client model…", "Connecting to the shared WASM worker.");
+
+      if (typeof SharedWorker === "undefined") {
+        const { Laya } = await import("laya-system-one");
+        setClientLoading(true, "Loading the client model…", "Fetching the tokenizer, model, and WASM engine.");
+        const runtime = await Laya.load({
+          backend: "wasm",
+          modelDir: CLIENT_MODEL_DIR,
+          ...(CLIENT_WASM_BASE ? { wasmBase: CLIENT_WASM_BASE } : {}),
+        });
+        clientRuntime = runtime;
+        return runtime;
+      }
+
+      return new Promise<ClientRuntime>((resolve, reject) => {
+        const worker = new SharedWorker(
+          new URL("./laya-shared-worker.ts", import.meta.url),
+          { type: "module", name: "py-decision-laya" },
+        );
+        const port = worker.port;
+        const pending = new Map<number, {
+          resolve: (prediction: ClientPrediction) => void;
+          reject: (error: Error) => void;
+        }>();
+        let nextRequestId = 0;
+        let settled = false;
+
+        const fail = (error: unknown): void => {
+          const failure = error instanceof Error ? error : new Error(String(error));
+          for (const request of pending.values()) request.reject(failure);
+          pending.clear();
+          if (!settled) {
+            reject(failure);
+          } else {
+            clientRuntime = null;
+            clientRuntimePromise = null;
+          }
+        };
+
+        const runtime: ClientRuntime = {
+          predict(state, questions) {
+            const requestId = ++nextRequestId;
+            return new Promise<ClientPrediction>((resolvePrediction, rejectPrediction) => {
+              pending.set(requestId, { resolve: resolvePrediction, reject: rejectPrediction });
+              const message: SharedWorkerRequest = { type: "predict", requestId, state, questions };
+              try {
+                port.postMessage(message);
+              } catch (error: unknown) {
+                pending.delete(requestId);
+                rejectPrediction(error instanceof Error ? error : new Error(String(error)));
+              }
+            });
+          },
+        };
+
+        port.onmessage = (event: MessageEvent<SharedWorkerResponse>) => {
+          const message = event.data;
+          if (message.type === "loaded") {
+            settled = true;
+            clientRuntime = runtime;
+            resolve(runtime);
+            return;
+          }
+          if (message.type === "prediction") {
+            const request = pending.get(message.requestId);
+            if (!request) return;
+            pending.delete(message.requestId);
+            request.resolve(message.prediction);
+            return;
+          }
+          const error = new Error(message.message);
+          if (message.requestId === undefined) {
+            fail(error);
+            return;
+          }
+          const request = pending.get(message.requestId);
+          if (!request) return;
+          pending.delete(message.requestId);
+          request.reject(error);
+        };
+        port.onmessageerror = () => fail(new Error("The client model worker could not read a message."));
+        worker.onerror = (event) => fail(event.error ?? new Error(event.message));
+        port.start();
+        port.postMessage({
+          type: "load",
+          modelDir: CLIENT_MODEL_DIR,
+          wasmBase: CLIENT_WASM_BASE,
+        });
       });
-      clientRuntime = runtime;
-      return runtime;
     })().catch((error: unknown) => {
       clientRuntimePromise = null;
       clientRuntime = null;
