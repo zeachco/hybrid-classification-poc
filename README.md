@@ -56,11 +56,27 @@ PY_DECISION_LAYA_DEVICE=cpu
 ```
 
 No additional volumes or storage are required. The public English checkpoint
-requires no `HF_TOKEN`; it is downloaded during the Docker image build and served
-from `/app/models/laya` at runtime. To use a different checkpoint, update the
+requires no `HF_TOKEN`. The build fetches it in its own `model-fetch` stage and
+the runtime image copies it to `/app/models/laya`, so a client or `src/` change
+never re-downloads the ~843 MB checkpoint or re-pushes its layer. Timestamps are
+normalised in that stage so the layer stays byte-identical across rebuilds and
+the registry can deduplicate it. To use a different checkpoint, update the
 `LAYA_MODEL_REVISION` build ARG in the Dockerfile and rebuild the image. Give the
 service at least 4 GB of RAM because PyTorch runtime memory is larger than the
 checkpoint file.
+
+The server model is currently disabled, so `/app/models/laya` is only used by
+`POST /api/classify` if it is re-enabled; the browser gets its own copy from the
+client bundle (`public/bundle/models/laya/`). If the server path stays off, the
+`model-fetch` stage and its `COPY` can be deleted to drop ~843 MB from the image.
+To avoid the build-time Hugging Face download entirely, build that stage once and
+publish it, then reference the published image as the `model-fetch` base:
+
+```sh
+docker build --target model-fetch \
+  -t ghcr.io/zeachco/py-decision-model:55cf4c4 .
+docker push ghcr.io/zeachco/py-decision-model:55cf4c4
+```
 
 ## Checks
 
