@@ -1,4 +1,5 @@
 import "./styles.css";
+import { installModelCache } from "./laya-model-cache";
 
 type QuestionType = "choice" | "score" | "noul";
 
@@ -305,8 +306,9 @@ async function loadClientRuntime(): Promise<ClientRuntime> {
       setClientLoading(true, "Loading the client model…", "Connecting to the shared WASM worker.");
 
       if (typeof SharedWorker === "undefined") {
-        const { Laya } = await import("laya-system-one");
         setClientLoading(true, "Loading the client model…", "Fetching the tokenizer, model, and WASM engine.");
+        await installModelCache({ modelDir: CLIENT_MODEL_DIR, wasmBase: CLIENT_WASM_BASE });
+        const { Laya } = await import("laya-system-one");
         const loadedRuntime = await Laya.load({
           backend: "wasm",
           modelDir: CLIENT_MODEL_DIR,

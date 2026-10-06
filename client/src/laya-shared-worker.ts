@@ -1,3 +1,5 @@
+import { installModelCache } from "./laya-model-cache";
+
 type QuestionType = "choice" | "score" | "noul";
 
 type ClientQuestion = {
@@ -83,6 +85,9 @@ let runtimePromise: Promise<ClientRuntime> | null = null;
 function loadRuntime(modelDir: string, wasmBase: string): Promise<ClientRuntime> {
   if (!runtimePromise) {
     runtimePromise = (async () => {
+      // Persist the model/tokenizer/wasm in Cache Storage before Laya fetches
+      // them, so reloads and reconnects stay off the network.
+      await installModelCache({ modelDir, wasmBase });
       const { Laya }: LayaModule = await import("laya-system-one");
       const loadedRuntime = await Laya.load({
         backend: "wasm",

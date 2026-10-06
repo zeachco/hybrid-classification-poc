@@ -79,16 +79,24 @@ the Python application and ignored by Git. Hand-authored files elsewhere under
 The client currently runs in **Client model only** mode. The server model option is
 disabled for now — I won't pay for this publicly. Laya's WASM engine runs in a
 shared browser worker, and evaluations stay in the browser instead of calling
-`/api/classify`. The shared worker keeps
-the loaded model outside the page, so reloads and additional tabs reuse the same
-runtime while it remains alive; the browser's HTTP cache avoids downloading the
-model again if the worker is evicted. The demo warms the runtime once and caps
-interactive prompts at 1,024 tokens to keep mid-range hardware responsive. The
-normal client build bundles Laya's model, tokenizer, config, WASM glue, and
-binary automatically. To serve a model from another location, set
-`VITE_LAYA_MODEL_DIR` (see
+`/api/classify`. The shared worker keeps the loaded model outside the page, so
+additional tabs reuse the same runtime while it remains alive, and the model,
+tokenizer, config and WASM engine are persisted in the browser's Cache Storage
+(a versioned cache managed in
+[`client/src/laya-model-cache.ts`](./client/src/laya-model-cache.ts)). A reload
+or a worker eviction therefore rehydrates from disk instead of re-downloading
+~340 MB; the cache key is bumped when the model revision changes. The demo warms
+the runtime once and caps interactive prompts at 1,024 tokens to keep mid-range
+hardware responsive. The normal client build bundles Laya's model, tokenizer,
+config, WASM glue, and binary automatically. To serve a model from another
+location, set `VITE_LAYA_MODEL_DIR` (see
 [`client/.env.example`](./client/.env.example)). Client inference needs about 1
 GB of RAM and may crash the browser.
+
+Bundle assets are served with an explicit `Cache-Control: public, max-age=86400`
+so browsers without Web Worker support (or before the Cache Storage copy is
+written) still avoid a cold re-download; `index.html` is served `no-cache` so a
+deploy is picked up immediately.
 
 ## Classification API
 

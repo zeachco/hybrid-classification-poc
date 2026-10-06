@@ -111,3 +111,24 @@ async def test_static_bundle_is_served(tmp_path: Path) -> None:
 
     assert index.text == "<h1>hello</h1>"
     assert asset.text == "console.log('hello')"
+
+
+@pytest.mark.asyncio
+async def test_bundle_assets_are_cacheable_while_html_revalidates(
+    tmp_path: Path,
+) -> None:
+    bundle = tmp_path / "bundle"
+    bundle.mkdir()
+    (bundle / "index.html").write_text("<h1>hello</h1>", encoding="utf-8")
+    (bundle / "model.onnx").write_bytes(b"weights")
+
+    app = create_app(public_dir=tmp_path)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+    ) as client:
+        asset = await client.get("/bundle/model.onnx")
+        index = await client.get("/bundle/index.html")
+
+    assert asset.headers["cache-control"] == "public, max-age=86400"
+    assert index.headers["cache-control"] == "no-cache"
