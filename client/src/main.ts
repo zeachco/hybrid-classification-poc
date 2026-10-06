@@ -94,18 +94,39 @@ app.innerHTML = `
         <small>Ask one clear question that can be answered from the prompt.</small>
       </label>
 
-      <label class="field">
-        <span>Question type</span>
-        <select name="question_type" data-question-type>
-          <option value="choice">Choice</option>
-          <option value="score">Score</option>
-          <option value="noul">Yes / no</option>
-        </select>
-      </label>
+      <div class="field field-wide type-field">
+        <span id="question-type-label">Question type</span>
+        <div class="segmented" role="radiogroup" aria-labelledby="question-type-label" data-question-type>
+          <label class="segment">
+            <input type="radio" name="question_type" value="choice" checked />
+            <span class="segment-copy">
+              <strong>Choice</strong>
+              <small>Pick one of the choices</small>
+            </span>
+          </label>
+          <label class="segment">
+            <input type="radio" name="question_type" value="score" />
+            <span class="segment-copy">
+              <strong>Score</strong>
+              <small>Weigh every choice</small>
+            </span>
+          </label>
+          <label class="segment">
+            <input type="radio" name="question_type" value="noul" />
+            <span class="segment-copy">
+              <strong>Yes / no</strong>
+              <small>Binary answer</small>
+            </span>
+          </label>
+        </div>
+      </div>
 
-      <label class="field choices-field" data-choices-field>
-        <span data-choices-label>Choices</span>
-        <textarea name="choices" rows="4" data-choices required>Billing
+      <label class="field field-wide choices-field" data-choices-field>
+        <span class="field-label">
+          <span data-choices-label>Choices</span>
+          <span class="field-count" data-choices-count>4 listed</span>
+        </span>
+        <textarea name="choices" rows="5" data-choices required spellcheck="false">Billing
 Technical support
 Sales
 Other</textarea>
@@ -113,8 +134,12 @@ Other</textarea>
       </label>
 
       <label class="field field-wide prompt-field">
-        <span>Prompt to evaluate</span>
-        <textarea name="prompt" rows="6" required maxlength="6000" placeholder="Paste the text Laya should classify…">I was charged twice for my subscription and need a refund.</textarea>
+        <span class="field-label">
+          <span>Prompt to evaluate</span>
+          <span class="field-count" data-prompt-count>0 / 6000</span>
+        </span>
+        <textarea name="prompt" rows="7" required maxlength="6000" data-prompt placeholder="Paste the text Laya should classify…">I was charged twice for my subscription and need a refund.</textarea>
+        <small>Press <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to evaluate.</small>
       </label>
 
       <div class="client-loading" data-client-loading hidden aria-live="polite">
@@ -156,9 +181,12 @@ Other</textarea>
 `;
 
 const form = app.querySelector<HTMLFormElement>("[data-form]");
-const typeSelect = app.querySelector<HTMLSelectElement>("[data-question-type]");
+const typeGroup = app.querySelector<HTMLElement>("[data-question-type]");
 const choicesField = app.querySelector<HTMLElement>("[data-choices-field]");
 const choicesInput = app.querySelector<HTMLTextAreaElement>("[data-choices]");
+const choicesCount = app.querySelector<HTMLElement>("[data-choices-count]");
+const promptInput = app.querySelector<HTMLTextAreaElement>("[data-prompt]");
+const promptCount = app.querySelector<HTMLElement>("[data-prompt-count]");
 const submit = app.querySelector<HTMLButtonElement>("[data-submit]");
 const submitSpinner = app.querySelector<HTMLElement>("[data-submit-spinner]");
 const submitLabel = app.querySelector<HTMLElement>("[data-submit-label]");
@@ -173,15 +201,45 @@ const classification = app.querySelector<HTMLElement>("[data-classification]");
 const confidence = app.querySelector<HTMLElement>("[data-confidence]");
 const probabilities = app.querySelector<HTMLElement>("[data-probabilities]");
 
-function updateQuestionType(): void {
-  const isYesNo = typeSelect?.value === "noul";
-  if (!choicesField || !choicesInput) return;
-  choicesField.hidden = isYesNo;
-  choicesInput.required = !isYesNo;
+function selectedQuestionType(): QuestionType {
+  const checked = form?.querySelector<HTMLInputElement>("input[name='question_type']:checked");
+  return (checked?.value ?? "choice") as QuestionType;
 }
 
-typeSelect?.addEventListener("change", updateQuestionType);
+function updateChoicesCount(): void {
+  if (!choicesCount || !choicesInput) return;
+  const count = choicesInput.value
+    .split("\n")
+    .map((choice) => choice.trim())
+    .filter(Boolean).length;
+  choicesCount.textContent = count === 1 ? "1 listed" : `${count} listed`;
+}
+
+function updatePromptCount(): void {
+  if (!promptCount || !promptInput) return;
+  promptCount.textContent = `${promptInput.value.length} / ${promptInput.maxLength}`;
+}
+
+function updateQuestionType(): void {
+  const isYesNo = selectedQuestionType() === "noul";
+  if (choicesField && choicesInput) {
+    choicesField.hidden = isYesNo;
+    choicesInput.required = !isYesNo;
+  }
+  updateChoicesCount();
+}
+
+typeGroup?.addEventListener("change", updateQuestionType);
+choicesInput?.addEventListener("input", updateChoicesCount);
+promptInput?.addEventListener("input", updatePromptCount);
+form?.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+    event.preventDefault();
+    form?.requestSubmit();
+  }
+});
 updateQuestionType();
+updatePromptCount();
 
 function setStatus(message: string, state: "ready" | "error" | "loading" | "") {
   if (!status) return;
