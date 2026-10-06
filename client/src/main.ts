@@ -16,10 +16,6 @@ type ClassificationResponse = {
   labels: ClassificationLabel[];
 };
 
-type ClassificationError = {
-  detail?: string;
-};
-
 type ClientAnswer = {
   type: QuestionType;
   choice?: string;
@@ -78,13 +74,8 @@ app.innerHTML = `
           <h2>Define the question</h2>
         </div>
         <div class="runtime-controls">
-          <label class="runtime-switch" data-runtime-switch title="Client inference needs about 1 GB of RAM and may crash your browser.">
-            <span>Client model only</span>
-            <input type="checkbox" data-client-model checked disabled aria-describedby="client-model-warning" />
-            <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
-          </label>
-          <p class="runtime-warning" id="client-model-warning" data-client-model-warning role="note">
-            The server model is disabled for now — I won't pay for this publicly. Client inference loads the WASM model into your browser, which needs about 1 GB of RAM and might crash.
+          <p class="runtime-warning" role="note">
+            Inference runs entirely in your browser and needs about 1 GB of RAM; it may crash the tab.
           </p>
         </div>
       </div>
@@ -192,7 +183,6 @@ const submit = app.querySelector<HTMLButtonElement>("[data-submit]");
 const submitSpinner = app.querySelector<HTMLElement>("[data-submit-spinner]");
 const submitLabel = app.querySelector<HTMLElement>("[data-submit-label]");
 const status = app.querySelector<HTMLElement>("[data-status]");
-const runtimeSwitch = app.querySelector<HTMLElement>("[data-runtime-switch]");
 const clientLoading = app.querySelector<HTMLElement>("[data-client-loading]");
 const clientLoadingLabel = app.querySelector<HTMLElement>("[data-client-loading-label]");
 const clientLoadingDetail = app.querySelector<HTMLElement>("[data-client-loading-detail]");
@@ -255,7 +245,6 @@ function formatValue(value: string | boolean | number): string {
 
 let clientRuntime: ClientRuntime | null = null;
 let clientRuntimePromise: Promise<ClientRuntime> | null = null;
-let clientMode = true;
 
 type SharedWorkerRequest = {
   type: "predict";
@@ -274,13 +263,10 @@ function setClientLoading(loading: boolean, label = "Loading the client model…
   clientLoading?.toggleAttribute("hidden", !loading);
   if (clientLoadingLabel) clientLoadingLabel.textContent = label;
   if (clientLoadingDetail) clientLoadingDetail.textContent = detail;
-  if (runtimeSwitch) runtimeSwitch.dataset.state = loading ? "loading" : clientMode ? "client" : "server";
   if (formNote) {
     formNote.textContent = loading
       ? "The client model must finish loading before it can evaluate prompts."
-      : clientMode
-        ? "One shared WASM runtime stays in this browser."
-        : "Requests use the server model by default.";
+      : "One shared WASM runtime stays in this browser.";
   }
 }
 
@@ -327,7 +313,7 @@ async function loadClientRuntime(): Promise<ClientRuntime> {
       const runtime = await new Promise<ClientRuntime>((resolve, reject) => {
         const worker = new SharedWorker(
           new URL("./laya-shared-worker.ts", import.meta.url),
-          { type: "module", name: "py-decision-laya" },
+          { type: "module" },
         );
         const port = worker.port;
         const pending = new Map<number, {
@@ -540,50 +526,25 @@ async function classify(): Promise<void> {
   submit.setAttribute("aria-busy", "true");
   submitSpinner?.removeAttribute("hidden");
   submitLabel.textContent = "Evaluating…";
-  setStatus(clientMode ? "Evaluating in the browser…" : "Sending prompt to the server model…", "loading");
+  setStatus("Evaluating in the browser…", "loading");
 
   // Let the browser paint the loading state before client-side inference can block the tab.
-  if (clientMode) {
-    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
-  }
+  await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
 
   try {
-    let body: ClassificationResponse;
-    let elapsedMs: number | null = null;
-    if (clientMode) {
-      const runtime = await loadClientRuntime();
-      const startedAt = performance.now();
-      const prediction = await runtime.predict(
-        String(data.get("prompt") ?? ""),
-        makeClientQuestions(questionType, String(data.get("question") ?? ""), choices),
-        { maxLen: CLIENT_MAX_TOKENS },
-      );
-      elapsedMs = Math.round(performance.now() - startedAt);
-      const answer = prediction.answers.classification;
-      if (!answer) throw new Error("The client model returned no classification.");
-      body = clientResponse(questionType, choices, answer);
-    } else {
-      const response = await fetch("/api/classify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          question: data.get("question"),
-          question_type: questionType,
-          choices: questionType === "noul" ? [] : choices,
-          prompt: data.get("prompt"),
-        }),
-      });
-      const responseBody = (await response.json()) as ClassificationResponse | ClassificationError;
-      if (!response.ok) {
-        throw new Error((responseBody as ClassificationError).detail ?? `HTTP ${response.status}`);
-      }
-      body = responseBody as ClassificationResponse;
-    }
-    showResults(body);
+    const runtime = await loadClientRuntime();
+    const startedAt = performance.now();
+    const prediction = await runtime.predict(
+      String(data.get("prompt") ?? ""),
+      makeClientQuestions(questionType, String(data.get("question") ?? ""), choices),
+      { maxLen: CLIENT_MAX_TOKENS },
+    );
+    const elapsedMs = Math.round(performance.now() - startedAt);
+    const answer = prediction.answers.classification;
+    if (!answer) throw new Error("The client model returned no classification.");
+    showResults(clientResponse(questionType, choices, answer));
     setStatus(
-      clientMode && elapsedMs !== null
-        ? `Evaluation complete in the browser (${elapsedMs} ms warm inference).`
-        : "Evaluation complete.",
+      `Evaluation complete in the browser (${elapsedMs} ms warm inference).`,
       "ready",
     );
   } catch (error) {
@@ -605,7 +566,7 @@ void loadClientRuntime()
   })
   .catch((error: unknown) => {
     setClientLoading(false);
-    setStatus(`Client model failed to load: ${error instanceof Error ? error.message : String(error)}. The server model is disabled.`, "error");
+    setStatus(`Client model failed to load: ${error instanceof Error ? error.message : String(error)}.`, "error");
   });
 
 form?.addEventListener("submit", (event) => {
