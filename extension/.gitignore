@@ -1,0 +1,7 @@
+# Build output and generated model assets
+dist/
+assets/models/
+assets/wasm-pkg/
+
+node_modules/
+*.tsbuildinfo

@@ -98,3 +98,15 @@ Bundle assets are served with an explicit `Cache-Control: public, max-age=86400`
 so browsers without Web Worker support (or before the Cache Storage copy is
 written) still avoid a cold re-download; `index.html` is served `no-cache` so a
 deploy is picked up immediately.
+
+## Browser extension
+
+[`extension/`](./extension) is a Manifest V3 companion that reuses the same
+client-side Laya runtime to flag unsafe terminal commands on any page: it detects
+command-like elements on hover, in the current selection, and on copy, and shows
+a floating tooltip with per-category risk (secret leak, reverse shell,
+destructive, privilege escalation, download-and-execute, data exfiltration,
+obfuscation, persistence, OS applicability). Inference runs in an offscreen
+document, so nothing leaves the browser. See
+[`extension/README.md`](./extension/README.md) and the design in
+[`extension/PLAN.md`](./extension/PLAN.md).

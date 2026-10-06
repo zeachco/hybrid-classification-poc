@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Laya Command Guard</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      body {
+        margin: 0;
+        width: 360px;
+        background: #16181d;
+        color: #e6e8ec;
+        font-size: 12px;
+      }
+      main { padding: 12px; }
+      header { display: flex; align-items: center; justify-content: space-between; }
+      h1 { font-size: 13px; margin: 0; }
+      h2 { font-size: 12px; margin: 16px 0 6px; color: #c7ccd4; }
+      h2 small { color: #838a95; font-weight: 400; }
+      .state { padding: 1px 8px; border-radius: 999px; font-size: 10px; text-transform: uppercase; }
+      .state--cold { background: #2a2d34; color: #9aa0aa; }
+      .state--loading { background: #4a3a10; color: #e8a300; }
+      .state--ready { background: #14361c; color: #69db7c; }
+      .state--error { background: #41161a; color: #ff8787; }
+      .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; align-items: center; }
+      .toggle { display: flex; gap: 5px; align-items: center; }
+      button {
+        background: #24272e; color: #e6e8ec; border: 1px solid #363a43;
+        border-radius: 6px; padding: 4px 9px; cursor: pointer; font: inherit;
+      }
+      button:hover { background: #2d313a; }
+      button:disabled { opacity: 0.5; cursor: default; }
+      .attempts { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 320px; overflow: auto; }
+      .attempt { border: 1px solid #2a2d34; border-radius: 6px; padding: 6px 8px; }
+      .attempt-head { display: flex; gap: 6px; align-items: center; }
+      .level { padding: 0 6px; border-radius: 999px; font-size: 10px; color: #10120f; }
+      .level--safe { background: #2f9e44; }
+      .level--caution { background: #e8a300; }
+      .level--dangerous { background: #e03131; color: #fff; }
+      .level--not_applicable { background: #5c7cfa; color: #fff; }
+      .attempt-meta { color: #838a95; margin-left: auto; }
+      .attempt-command { margin-top: 4px; color: #c7ccd4; word-break: break-all; }
+      .empty { color: #6b7280; }
+      .error-detail {
+        margin: 8px 0 0; padding: 6px 8px; border-radius: 6px;
+        background: #41161a; color: #ffb3b3; word-break: break-word;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Laya Command Guard</h1>
+        <p id="model-state" class="state state--cold">cold</p>
+      </header>
+      <p id="error-detail" class="error-detail" hidden></p>
+
+      <section class="controls">
+        <label class="toggle">
+          <input id="enabled" type="checkbox" checked />
+          <span>Tooltips</span>
+        </label>
+        <label class="toggle">
+          <input id="verbose" type="checkbox" />
+          <span>Log commands</span>
+        </label>
+        <button id="warm" type="button">Warm up</button>
+        <button id="clear" type="button">Clear</button>
+      </section>
+
+      <section>
+        <h2>Recent attempts <small id="attempt-count"></small></h2>
+        <ol id="attempts" class="attempts"></ol>
+      </section>
+    </main>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>
